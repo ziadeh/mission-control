@@ -296,7 +296,15 @@ async function fetchFromApi(): Promise<FetchResult> {
 export function getClaudeUsageLimits(): Promise<ClaudeUsageLimits> {
   const now = Date.now();
   const fromFile = readSharedLimitsSnapshot(now);
-  if (fromFile && (!cache || fromFile.fetchedAt >= cache.value.fetchedAt)) {
+  // A fresh tap always wins over a cached *failure* (rate-limit / error /
+  // unauthenticated), so the indicator recovers the moment any session reports —
+  // even mid-backoff. The `fetchedAt` recency check only guards against
+  // regressing to an older snapshot when we're already holding a good one; we
+  // skip it for failures because the file's fetchedAt is a floored mtime while a
+  // failure's is a ms-precise Date.now(), and on coarse-mtime filesystems the
+  // floored value can spuriously land below it and pin us to the stale failure.
+  const holdingGood = cache?.value.status === "ok";
+  if (fromFile && (!cache || !holdingGood || fromFile.fetchedAt >= cache.value.fetchedAt)) {
     cache = { value: fromFile, expiresAt: now + FILE_SERVE_TTL_MS };
     return Promise.resolve(fromFile);
   }

@@ -177,6 +177,29 @@ describe("claude usage limits service", () => {
       expect(recovered.session?.utilization).toBe(42);
     });
 
+    it("recovers mid-backoff from a tap whose mtime predates the 429 (coarse fs mtime)", async () => {
+      // Regression: a shared-file snapshot's fetchedAt is Math.floor(mtimeMs)
+      // while a rate_limited snapshot's is Date.now(). On a filesystem with
+      // coarse (>=1s) mtime resolution the tap's floored mtime can land below
+      // the 429's millisecond timestamp, so the freshness guard used to keep
+      // serving the stale rate-limit through the whole backoff. A fresh tap must
+      // beat a cached failure regardless of the mtime/Date.now() resolution gap.
+      vi.stubGlobal("fetch", vi.fn(async () => new Response("", { status: 429 })));
+      const limited = await getClaudeUsageLimits();
+      expect(limited.status).toBe("rate_limited");
+
+      // Fresh (well inside the 10-min window) but with an mtime a few seconds
+      // back — i.e. floor(mtimeMs) < the 429's Date.now() fetchedAt.
+      writeSharedFile(
+        { five_hour: { utilization: 42, resets_at: null }, source: "statusline" },
+        5_000,
+      );
+
+      const recovered = await getClaudeUsageLimits();
+      expect(recovered.status).toBe("ok");
+      expect(recovered.session?.utilization).toBe(42);
+    });
+
     it("publishes an endpoint success back to the shared file", async () => {
       vi.stubGlobal(
         "fetch",

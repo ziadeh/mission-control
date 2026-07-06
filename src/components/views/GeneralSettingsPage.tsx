@@ -122,6 +122,7 @@ export function GeneralSettingsPage() {
     recallInjectBriefEnabled: settings?.recallInjectBriefEnabled ?? true,
     recallCodeGraphEnabled: settings?.recallCodeGraphEnabled ?? true,
     recallProactiveRecallEnabled: settings?.recallProactiveRecallEnabled ?? true,
+    recallLearnedToastEnabled: settings?.recallLearnedToastEnabled ?? true,
     ...queryClient.getQueryData<AppSettings>(queryKeys.settings),
     worktreesEnabled:
       queryClient.getQueryData<AppSettings>(queryKeys.settings)?.worktreesEnabled ??

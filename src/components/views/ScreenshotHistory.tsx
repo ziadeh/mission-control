@@ -18,11 +18,11 @@ import { playScreenshotDrop } from "~/lib/screenshot-sound";
 // Match the grid's reorder drag: only start dragging once the pointer clears a
 // few pixels, so a plain click still registers as a click (open the editor).
 const DRAG_THRESHOLD_PX = 6;
-// Fixed thumbnail height keeps the strip a predictable height; width follows the
-// image aspect ratio up to a cap so a wide capture doesn't hog the row.
+// Every thumbnail renders at this exact size so the strip reads as a uniform
+// row regardless of each capture's aspect ratio. Images fill the box via
+// objectFit "cover" (center-cropped) rather than letterboxing.
 const THUMB_HEIGHT_PX = 68;
-const THUMB_MAX_WIDTH_PX = 200;
-const THUMB_MIN_WIDTH_PX = 96;
+const THUMB_WIDTH_PX = 120;
 
 // The session cell / terminal panel under a screen point, if any.
 function sessionHostAtPoint(x: number, y: number): HTMLElement | null {
@@ -33,11 +33,13 @@ function sessionHostAtPoint(x: number, y: number): HTMLElement | null {
 const thumbFrameStyle: CSSProperties = {
   position: "relative",
   height: THUMB_HEIGHT_PX,
-  minWidth: THUMB_MIN_WIDTH_PX,
-  maxWidth: THUMB_MAX_WIDTH_PX,
+  width: THUMB_WIDTH_PX,
   borderRadius: 8,
   overflow: "hidden",
-  border: "1px solid var(--border)",
+  // The anchored card draws its border from CSS (.screenshot-history-card) so
+  // :hover can swap the color to the accent as a single crisp edge; an inline
+  // border would win over that rule and leave a doubled gray+accent line. The
+  // classless drag ghost re-adds the border inline (see below).
   background: "var(--surface-2)",
   lineHeight: 0,
   flexShrink: 0,
@@ -201,15 +203,14 @@ function ScreenshotHistoryCard({
         style={{
           display: "block",
           height: THUMB_HEIGHT_PX,
-          width: "auto",
-          maxWidth: THUMB_MAX_WIDTH_PX,
+          width: THUMB_WIDTH_PX,
           objectFit: "cover",
           objectPosition: "center",
         }}
       />
     ) : (
       // Restored-from-disk entry whose preview hasn't loaded yet.
-      <div style={{ width: 96, height: THUMB_HEIGHT_PX }} aria-hidden />
+      <div style={{ width: THUMB_WIDTH_PX, height: THUMB_HEIGHT_PX }} aria-hidden />
     );
 
   return (
@@ -320,6 +321,9 @@ function ScreenshotHistoryCard({
           aria-hidden
           style={{
             ...thumbFrameStyle,
+            // Ghost has no .screenshot-history-card class, so restore the border
+            // that the anchored card gets from CSS.
+            border: "1px solid var(--border)",
             position: "fixed",
             left: dragPoint.x,
             top: dragPoint.y,
